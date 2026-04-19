@@ -1,0 +1,21 @@
+StudentID,NAVLE_required,FirstChoice1,SecondChoice1,FirstChoice2,SecondChoice2
+S001,Yes,Selective NAVLE Review,Selective Anaesthesia,Selective Oncology,Selective Dentistry
+S002,No,Selective Dentistry,Selective NAVLE Review,Selective Advanced Surgery,Selective Dermatology
+S003,Yes,Selective NAVLE Review,Selective Ophthalmology,Selective Reproduction,Selective Behaviour
+S004,No,Selective Emergency,Selective Dermatology,Selective Rehabilitation,Selective Orthopaedics
+S005,No,Selective Wildlife,Selective Shelter Medicine,Selective Conservation Medicine,Selective Aquatic Medicine
+S006,Yes,Selective NAVLE Review,Selective Cardiology,Selective Neurology,Selective Pharmacology
+S007,No,Selective Dentistry,Selective Equine Sports Medicine,Selective Dermatology,Selective Oncology
+S008,No,Selective Advanced Surgery,Selective Anaesthesia,Selective Cardiology,Selective Neurology
+S009,Yes,Selective NAVLE Review,Selective Practice Management,Selective Pathology,Selective Pharmacology
+S010,No,Selective Behaviour,Selective Exotics,Selective Endocrinology,Selective Nephrology
+S011,No,Selective Reproduction,Selective Ophthalmology,Selective Dermatology,Selective Cardiology
+S012,Yes,Selective NAVLE Review,Selective Emergency,Selective Orthopaedics,Selective Rehabilitation
+S013,No,Selective Aquatic Medicine,Selective Wildlife,Selective Conservation Medicine,Selective Pharmacology
+S014,No,Selective Cardiology,Selective Neurology,Selective Advanced Surgery,Selective Oncology
+S015,Yes,Selective NAVLE Review,Selective Dentistry,Selective Behaviour,Selective Practice Management
+S016,No,Selective Pathology,Selective Microbiology,Selective Endocrinology,Selective Gastroenterology
+S017,No,Selective Wildlife,Selective Shelter Medicine,Selective Aquatic Medicine,Selective Conservation Medicine
+S018,Yes,Selective NAVLE Review,Selective Anaesthesia,Selective Equine Sports Medicine,Selective Dentistry
+S019,No,Selective Orthopaedics,Selective Rehabilitation,Selective Cardiology,Selective Neurology
+S020,No,Selective Practice Management,Selective Advanced Surgery,Selective Behaviour,Selective Pathology

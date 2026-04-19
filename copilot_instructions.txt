@@ -1,0 +1,12 @@
+Please write a Python program to automate the rotation timetabling of final year vet students. There are 36 rotations available of which 6 are core and must be undertaken by all students and 30 are optional selective rotations. There are 10 blocks within the year in which these rotations run. This will be described in a spreadsheet where the columns are the blocks and the rows are the rotations and each cell will contain the number of places available for that rotation in that block. Note that these numbers are examples and may change from year to year.
+
+The selective rotations will be chosen by students who specify their first and second choice options for each of two rotations by means of a survey. These survey responses will be collected in a spreadsheet. There is a special NAVLE selective rotation which must be chosen as a first-choice option by certain students.
+
+In addition there are some restrictions on the order in which some rotations must be undertaken, for example the Morocco rotation must be undertaken after the Equine rotation. These restrictions will be described in a text file using natural language with one restriction per line.
+
+The program should:
+a) ensure that all students are allocated to places for the core rotations
+b) all students who chose the NAVLE selective get allocated places
+c) all students get at least their second-choice options and as many as possible should get at least one of their first-choice options
+
+Output should be a spreadsheet with blocks as columns, students as rows and each cell should contain the allocated rotation number. Program should report number of students who were allocated their first and second choice options and any problems in satisfying the requirements. 

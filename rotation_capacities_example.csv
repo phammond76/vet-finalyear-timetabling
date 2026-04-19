@@ -1,0 +1,37 @@
+RotationID,RotationName,Block1,Block2,Block3,Block4,Block5,Block6,Block7,Block8,Block9,Block10
+1,Core Small Animal,4,4,4,4,4,4,4,4,4,4
+2,Core Farm Animal,4,4,4,4,4,4,4,4,4,4
+3,Core Equine,3,3,3,3,3,3,3,3,3,3
+4,Core Diagnostic Imaging,3,3,3,3,3,3,3,3,3,3
+5,Core Surgery,4,4,4,4,4,4,4,4,4,4
+6,Core Medicine,4,4,4,4,4,4,4,4,4,4
+7,Selective Anaesthesia,2,2,2,2,2,2,2,2,2,2
+8,Selective Dentistry,2,2,2,2,2,2,2,2,2,2
+9,Selective Emergency,3,3,3,3,3,3,3,3,3,3
+10,Selective Dermatology,2,2,2,2,2,2,2,2,2,2
+11,Selective Equine Sports Medicine,2,2,2,2,2,2,2,2,2,2
+12,Selective Oncology,2,2,2,2,2,2,2,2,2,2
+13,Selective Ophthalmology,2,2,2,2,2,2,2,2,2,2
+14,Selective Pathology,2,2,2,2,2,2,2,2,2,2
+15,Selective Reproduction,2,2,2,2,2,2,2,2,2,2
+16,Selective Exotics,2,2,2,2,2,2,2,2,2,2
+17,Selective Equine Dentistry,1,1,1,1,1,1,1,1,1,1
+18,Selective Rehabilitation,2,2,2,2,2,2,2,2,2,2
+19,Selective Neurology,2,2,2,2,2,2,2,2,2,2
+20,Selective NAVLE Review,3,3,3,3,3,3,3,3,3,3
+21,Selective Shelter Medicine,2,2,2,2,2,2,2,2,2,2
+22,Selective Wildlife,2,2,2,2,2,2,2,2,2,2
+23,Selective Behaviour,2,2,2,2,2,2,2,2,2,2
+24,Selective Practice Management,2,2,2,2,2,2,2,2,2,2
+25,Selective Pharmacology,2,2,2,2,2,2,2,2,2,2
+26,Selective Cardiology,2,2,2,2,2,2,2,2,2,2
+27,Selective Nephrology,2,2,2,2,2,2,2,2,2,2
+28,Selective Endocrinology,2,2,2,2,2,2,2,2,2,2
+29,Selective Gastroenterology,2,2,2,2,2,2,2,2,2,2
+30,Selective Microbiology,2,2,2,2,2,2,2,2,2,2
+31,Selective Cardiac Imaging,1,1,1,1,1,1,1,1,1,1
+32,Selective Orthopaedics,2,2,2,2,2,2,2,2,2,2
+33,Selective Advanced Surgery,2,2,2,2,2,2,2,2,2,2
+34,Selective Conservation Medicine,2,2,2,2,2,2,2,2,2,2
+35,Selective Aquatic Medicine,2,2,2,2,2,2,2,2,2,2
+36,Selective Diagnostic Pathology,2,2,2,2,2,2,2,2,2,2
