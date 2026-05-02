@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Vet Timetabling Tests",
+      "type": "shell",
+      "command": "${command:python.interpreterPath}",
+      "args": ["${workspaceFolder}/test_dynamic_navle_blocks.py"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

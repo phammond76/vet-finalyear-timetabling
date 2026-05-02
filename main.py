@@ -3,8 +3,8 @@ Vet Final Year Rotation Timetabling System
 
 Automates the allocation of final year veterinary students to clinical rotations.
 Each student must complete 6 mandatory core rotations and 2 elective selective rotations
-across 10 blocks (time periods). The system respects capacity constraints and
-sequence restrictions while attempting to satisfy student preferences.
+across a configurable number of blocks (time periods). The system respects capacity
+constraints and sequence restrictions while attempting to satisfy student preferences.
 """
 
 import argparse
@@ -35,7 +35,7 @@ def read_rotation_capacities(path: Path) -> Tuple[List[str], Dict[str, Dict[str,
     Reads rotation capacity data from CSV file.
     
     Args:
-        path: Path to CSV file with columns: RotationID, RotationName, Block1...Block10
+        path: Path to CSV file with columns: RotationID, RotationName, Block1...BlockN
         
     Returns:
         Tuple of:
@@ -340,95 +340,81 @@ def get_gap_friendly_block_order(
 ) -> List[str]:
     """
     Generate a block ordering that encourages gaps between rotation assignments.
-    
-    For 8 rotations across 10 blocks, tries patterns like:
-    - [1,2,3,4,6,7,8,9] (gap at 5) - max run length of 4
-    - [1,2,3,5,6,7,9,10] (gaps at 4,8) - smaller runs with multiple gaps
-    
-    For 9 rotations with NAVLE assigned to a specific block, generates patterns
-    that create gaps around the NAVLE block.
-    
+
+    Uses the actual number of available blocks rather than hardcoded patterns.
+    This supports variable year lengths and NAVLE block locations derived from
+    rotation capacity data.
+
     Args:
         num_rotations: Number of rotations to assign
         all_blocks: Available blocks
-        navle_block: If specified, the block where NAVLE is assigned (to plan around it)
-    
+        navle_block: If specified, a block that has already been reserved for NAVLE.
+
     Returns:
         Ordered list of blocks to prefer for assignments
     """
-    block_numbers = sorted([int(b[5:]) for b in all_blocks])  # Extract numbers from "Block1", "Block2", etc.
-    
-    # Generate candidate patterns in order of preference
-    candidates: List[List[int]] = []
-    
-    if num_rotations == 8:
-        # Patterns with good gap distribution (max run length ~4).
-        # For NAVLE students, avoid using a gap at the NAVLE block itself.
-        if navle_block:
-            navle_num = int(navle_block[5:])
-            if navle_num == 5:
-                candidates = [
-                    [1, 2, 3, 4, 7, 8, 9, 10],  # Gap at 6 while NAVLE is at 5
-                    [1, 2, 3, 6, 7, 8, 9, 10],  # Gap at 4 while NAVLE is at 5
-                    [1, 2, 3, 4, 6, 7, 8, 10],  # Gap at 9 while NAVLE is at 5
-                ]
-            elif navle_num == 10:
-                candidates = [
-                    [1, 2, 3, 4, 6, 7, 8, 9],  # Gap at 5 while NAVLE is at 10
-                    [1, 2, 3, 5, 6, 7, 8, 9],  # Gap at 4 while NAVLE is at 10
-                    [1, 2, 3, 4, 5, 6, 7, 9],  # Gap at 8 while NAVLE is at 10
-                ]
+    if num_rotations <= 0:
+        return []
+
+    # Sort blocks by numeric suffix for consistent ordering
+    def block_key(block: str) -> int:
+        match = re.search(r"(\d+)$", block)
+        return int(match.group(1)) if match else 0
+
+    sorted_blocks = sorted(all_blocks, key=block_key)
+    total_blocks = len(sorted_blocks)
+
+    if num_rotations >= total_blocks:
+        return sorted_blocks
+
+    gap_count = total_blocks - num_rotations
+
+    def score_pattern(selected_indices: List[int]) -> Tuple[int, float, List[int]]:
+        """Score a candidate pattern by run lengths and even spacing."""
+        runs: List[int] = []
+        current_run = 0
+        prev_idx: Optional[int] = None
+        for idx in selected_indices:
+            if prev_idx is None or idx != prev_idx + 1:
+                if current_run > 0:
+                    runs.append(current_run)
+                current_run = 1
             else:
-                candidates = [
-                    [1, 2, 3, 4, 6, 7, 8, 9],
-                    [1, 2, 3, 5, 6, 7, 8, 9],
-                    [1, 2, 3, 4, 6, 7, 8, 10],
-                ]
-        else:
-            candidates = [
-                [1, 2, 3, 5, 6, 7, 9, 10],  # Gaps at 4, 8 - multiple smaller runs
-                [1, 2, 4, 5, 6, 7, 9, 10],  # Gaps at 3, 8
-                [1, 2, 3, 4, 6, 7, 8, 9],   # Gap at 5
-                [1, 2, 3, 4, 6, 7, 8, 10],  # Gaps at 5, 9
-                [1, 2, 3, 4, 5, 7, 8, 9],   # Gap at 6
-            ]
-    elif num_rotations == 9:
-        # NAVLE students get 9 rotations
-        if navle_block and navle_block == "Block5":
-            # If NAVLE is at block 5, avoid [1-9] pattern by using block 10
-            # Patterns with gap around block 5
-            candidates = [
-                [1, 2, 3, 6, 7, 8, 9, 10],  # Gap at 4, NAVLE at 5
-                [1, 2, 3, 4, 7, 8, 9, 10],  # Gap at 6, NAVLE at 5
-                [1, 2, 4, 6, 7, 8, 9, 10],  # Gaps at 3, NAVLE at 5
-                [1, 2, 3, 4, 6, 8, 9, 10],  # Gap at 7, NAVLE at 5
-            ]
-        elif navle_block and navle_block == "Block10":
-            # If NAVLE is at block 10, prefer patterns that spread earlier blocks
-            candidates = [
-                [1, 2, 3, 4, 6, 7, 8, 9],  # Gap at 5
-                [1, 2, 3, 5, 6, 7, 8, 9],  # Gap at 4
-                [1, 2, 3, 4, 5, 7, 8, 9],  # Gap at 6
-            ]
-        else:
-            # General NAVLE patterns
-            candidates = [
-                [1, 2, 3, 4, 6, 7, 8, 9, 10],  # Gap at 5
-                [1, 2, 3, 4, 5, 7, 8, 9, 10],  # Gap at 6
-                [1, 2, 3, 4, 5, 6, 8, 9, 10],  # Gap at 7
-            ]
+                current_run += 1
+            prev_idx = idx
+        if current_run:
+            runs.append(current_run)
+        max_run = max(runs) if runs else 0
+        ideal_run = num_rotations / len(runs) if runs else float(num_rotations)
+        imbalance = sum((run - ideal_run) ** 2 for run in runs)
+        return max_run, imbalance, selected_indices
+
+    def selected_from_skips(skips: Tuple[int, ...]) -> List[int]:
+        return [idx for idx in range(total_blocks) if idx not in skips]
+
+    candidates: List[Tuple[int, int, List[int]]] = []
+
+    # If the search space is small, evaluate all skip combinations.
+    if gap_count <= 4 and total_blocks <= 16:
+        for skips in itertools.combinations(range(total_blocks), gap_count):
+            selected = selected_from_skips(skips)
+            candidates.append(score_pattern(selected))
     else:
-        # For other counts, use a simple pattern: first N blocks, then remainder
-        candidates = [block_numbers[:num_rotations]]
-    
-    # Try to use first available pattern, verify all blocks exist
-    all_block_nums = set(block_numbers)
-    for pattern in candidates:
-        if all(b in all_block_nums for b in pattern):
-            return [f"Block{b}" for b in pattern]
-    
-    # Fallback: return all blocks in order (will use them sequentially)
-    return [f"Block{b}" for b in block_numbers]
+        # For larger spaces, generate evenly-distributed skip positions.
+        for offset in range(gap_count + 1):
+            skips = []
+            for i in range(gap_count):
+                position = round((i + 1 + offset) * total_blocks / (gap_count + 1)) - 1
+                position = max(0, min(total_blocks - 1, position))
+                skips.append(position)
+            skips = tuple(sorted(set(skips)))
+            if len(skips) == gap_count:
+                selected = selected_from_skips(skips)
+                candidates.append(score_pattern(selected))
+
+    candidates.sort()
+    best_selected = candidates[0][2] if candidates else list(range(num_rotations))
+    return [sorted_blocks[idx] for idx in best_selected]
 
 
 def assign_rotations_to_student(

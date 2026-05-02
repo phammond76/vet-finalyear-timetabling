@@ -114,6 +114,17 @@ python main.py \
   --output my_timetable.csv
 ```
 
+### Running Tests
+
+A lightweight regression script is included for future edits.
+
+```bash
+python test_dynamic_navle_blocks.py
+```
+
+If you use VS Code, run the task:
+- `Run Vet Timetabling Tests`
+
 ### Command Line Arguments
 
 - `--capacities PATH`: Path to rotation capacity file (default: `rotation_capacities_example.csv`)
