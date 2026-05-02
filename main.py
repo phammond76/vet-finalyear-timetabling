@@ -9,6 +9,8 @@ sequence restrictions while attempting to satisfy student preferences.
 
 import argparse
 import csv
+import itertools
+import random
 import re
 from collections import deque
 from dataclasses import dataclass
@@ -333,6 +335,81 @@ def assign_rotations_to_students(
     return student_assignments, assignment_warnings
 
 
+def get_gap_friendly_block_order(
+    num_rotations: int, all_blocks: List[str], navle_block: Optional[str] = None
+) -> List[str]:
+    """
+    Generate a block ordering that encourages gaps between rotation assignments.
+    
+    For 8 rotations across 10 blocks, tries patterns like:
+    - [1,2,3,4,6,7,8,9] (gap at 5) - max run length of 4
+    - [1,2,3,5,6,7,9,10] (gaps at 4,8) - smaller runs with multiple gaps
+    
+    For 9 rotations with NAVLE assigned to a specific block, generates patterns
+    that create gaps around the NAVLE block.
+    
+    Args:
+        num_rotations: Number of rotations to assign
+        all_blocks: Available blocks
+        navle_block: If specified, the block where NAVLE is assigned (to plan around it)
+    
+    Returns:
+        Ordered list of blocks to prefer for assignments
+    """
+    block_numbers = sorted([int(b[5:]) for b in all_blocks])  # Extract numbers from "Block1", "Block2", etc.
+    
+    # Generate candidate patterns in order of preference
+    candidates: List[List[int]] = []
+    
+    if num_rotations == 8:
+        # Patterns with good gap distribution (max run length ~4)
+        candidates = [
+            [1, 2, 3, 5, 6, 7, 9, 10],  # Gaps at 4, 8 - multiple smaller runs
+            [1, 2, 4, 5, 6, 7, 9, 10],  # Gaps at 3, 8
+            # [2, 3, 4, 5, 6, 7, 8, 9],   # Gaps at 1, 10
+            [1, 2, 3, 4, 6, 7, 8, 9],   # Gap at 5
+            [1, 2, 3, 4, 6, 7, 8, 10],  # Gaps at 5, 9
+            [1, 2, 3, 4, 5, 7, 8, 9],   # Gap at 6
+        ]
+    elif num_rotations == 9:
+        # NAVLE students get 9 rotations
+        if navle_block and navle_block == "Block5":
+            # If NAVLE is at block 5, avoid [1-9] pattern by using block 10
+            # Patterns with gap around block 5
+            candidates = [
+                [1, 2, 3, 6, 7, 8, 9, 10],  # Gap at 4, NAVLE at 5
+                [1, 2, 3, 4, 7, 8, 9, 10],  # Gap at 6, NAVLE at 5
+                [1, 2, 4, 6, 7, 8, 9, 10],  # Gaps at 3, NAVLE at 5
+                [1, 2, 3, 4, 6, 8, 9, 10],  # Gap at 7, NAVLE at 5
+            ]
+        elif navle_block and navle_block == "Block10":
+            # If NAVLE is at block 10, prefer patterns that spread earlier blocks
+            candidates = [
+                [1, 2, 3, 4, 6, 7, 8, 9],  # Gap at 5
+                [1, 2, 3, 5, 6, 7, 8, 9],  # Gap at 4
+                [1, 2, 3, 4, 5, 7, 8, 9],  # Gap at 6
+            ]
+        else:
+            # General NAVLE patterns
+            candidates = [
+                [1, 2, 3, 4, 6, 7, 8, 9, 10],  # Gap at 5
+                [1, 2, 3, 4, 5, 7, 8, 9, 10],  # Gap at 6
+                [1, 2, 3, 4, 5, 6, 8, 9, 10],  # Gap at 7
+            ]
+    else:
+        # For other counts, use a simple pattern: first N blocks, then remainder
+        candidates = [block_numbers[:num_rotations]]
+    
+    # Try to use first available pattern, verify all blocks exist
+    all_block_nums = set(block_numbers)
+    for pattern in candidates:
+        if all(b in all_block_nums for b in pattern):
+            return [f"Block{b}" for b in pattern]
+    
+    # Fallback: return all blocks in order (will use them sequentially)
+    return [f"Block{b}" for b in block_numbers]
+
+
 def assign_rotations_to_student(
     student: StudentChoice,
     all_blocks: Sequence[str],
@@ -438,55 +515,101 @@ def assign_rotations_to_student(
                 f"NAVLE student {student.student_id} could not be assigned {preferred_block}; assigned {navle_assigned_block} instead."
             )
 
-    source = 0
-    rotation_nodes = {rotation: idx + 1 for idx, rotation in enumerate(student_rotations)}
-    block_nodes = {block: len(student_rotations) + 1 + idx for idx, block in enumerate(all_blocks_for_flow)}
-    sink = len(student_rotations) + 1 + len(all_blocks_for_flow)
-    graph = Dinic(sink + 1)
+    # Use gap-friendly block ordering: prioritize patterns with natural gaps
+    # For NAVLE students, account for which block NAVLE is assigned to
+    num_remaining_rotations = len(student_rotations)
+    navle_block_arg = None
+    if student.navle_required and "Selective NAVLE Review" not in student_rotations:
+        # NAVLE has been assigned; find which block
+        for block, rotation in assignments.items():
+            if rotation == "Selective NAVLE Review":
+                navle_block_arg = block
+                break
+    
+    gap_friendly_blocks = get_gap_friendly_block_order(
+        num_remaining_rotations, all_blocks_for_flow, navle_block_arg
+    )
+    # Reorder all_blocks_for_flow to prefer gap-friendly blocks first, then others
+    all_blocks_for_flow = gap_friendly_blocks + [b for b in all_blocks_for_flow if b not in gap_friendly_blocks]
 
-    # Source to rotations: each rotation must be assigned once
-    for rotation, node in rotation_nodes.items():
-        graph.add_edge(source, node, 1)
+    # Try to assign rotations using gap-friendly blocks first, then expand if needed
+    preferred_blocks = gap_friendly_blocks
+    fallback_blocks = [b for b in all_blocks_for_flow if b not in gap_friendly_blocks]
+    
+    def try_assignment_with_blocks(blocks_to_try: List[str]) -> Tuple[bool, Dict[str, str]]:
+        """Try to assign all rotations using only the specified blocks."""
+        source = 0
+        rotation_nodes = {rotation: idx + 1 for idx, rotation in enumerate(student_rotations)}
+        block_nodes = {block: len(student_rotations) + 1 + idx for idx, block in enumerate(blocks_to_try)}
+        sink = len(student_rotations) + 1 + len(blocks_to_try)
+        graph = Dinic(sink + 1)
 
-    # Blocks to sink: each block can receive at most one rotation
-    for block, node in block_nodes.items():
-        graph.add_edge(node, sink, 1)
+        # Source to rotations: each rotation must be assigned once
+        for rotation, node in rotation_nodes.items():
+            graph.add_edge(source, node, 1)
 
-    # Rotations to blocks: add edge if assignment is valid
-    for rotation, rot_node in rotation_nodes.items():
+        # Blocks to sink: each block can receive at most one rotation
+        for block, node in block_nodes.items():
+            graph.add_edge(node, sink, 1)
+
+        # Rotations to blocks: add edge if assignment is valid
+        for rotation, rot_node in rotation_nodes.items():
+            for block, block_node in block_nodes.items():
+                if remaining_capacities.get(rotation, {}).get(block, 0) <= 0:
+                    continue
+                if not rotation_allowed_in_block(
+                    student,
+                    rotation,
+                    block,
+                    assignments,
+                    all_blocks,
+                    remaining_capacities,
+                    order_rules,
+                    block_rank,
+                ):
+                    continue
+                graph.add_edge(rot_node, block_node, 1)
+
+        flow = graph.max_flow(source, sink)
+        if flow != len(student_rotations):
+            return False, {}
+
+        # Extract assignments from flow graph
+        assignments_found: Dict[str, str] = {}
         for block, block_node in block_nodes.items():
-            if remaining_capacities.get(rotation, {}).get(block, 0) <= 0:
-                continue
-            if not rotation_allowed_in_block(
-                student,
-                rotation,
-                block,
-                assignments,
-                all_blocks,
-                remaining_capacities,
-                order_rules,
-                block_rank,
-            ):
-                continue
-            graph.add_edge(rot_node, block_node, 1)
+            for edge in graph.graph[block_node]:
+                if edge.to == sink and edge.cap == 0:
+                    for rev_edge in graph.graph[block_node]:
+                        if rev_edge.to in rotation_nodes.values() and rev_edge.cap > 0:
+                            rotation = next(
+                                name for name, node in rotation_nodes.items() if node == rev_edge.to
+                            )
+                            assignments_found[block] = rotation
+                            break
+                    break
+        return True, assignments_found
 
-    flow = graph.max_flow(source, sink)
-    if flow != len(student_rotations):
+    # Try gap-friendly blocks first
+    success, block_assignments = try_assignment_with_blocks(preferred_blocks)
+    
+    # Debug output
+    if student.student_id in ['S001', 'S006', 'S012', 'S018']:
+        print(f"DEBUG {student.student_id}: preferred_blocks = {preferred_blocks}")
+        print(f"DEBUG {student.student_id}: first pass success = {success}")
+    
+    # If that fails, allow fallback blocks too
+    if not success and fallback_blocks:
+        success, block_assignments = try_assignment_with_blocks(preferred_blocks + fallback_blocks)
+        if student.student_id in ['S001', 'S006', 'S012', 'S018']:
+            print(f"DEBUG {student.student_id}: second pass success = {success}")
+    
+    if not success:
         return {}, [f"Unable to assign all {len(student_rotations)} rotations for {student.student_id}"]
 
-    # Extract assignments from flow graph
-    for block, block_node in block_nodes.items():
-        for edge in graph.graph[block_node]:
-            if edge.to == sink and edge.cap == 0:
-                for rev_edge in graph.graph[block_node]:
-                    if rev_edge.to in rotation_nodes.values() and rev_edge.cap > 0:
-                        rotation = next(
-                            name for name, node in rotation_nodes.items() if node == rev_edge.to
-                        )
-                        assignments[block] = rotation
-                        remaining_capacities[rotation][block] -= 1
-                        break
-                break
+    # Apply assignments and update capacities
+    for block, rotation in block_assignments.items():
+        assignments[block] = rotation
+        remaining_capacities[rotation][block] -= 1
 
     return assignments, navle_warnings
 

@@ -52,7 +52,10 @@ Collects student preferences for selective rotations.
 
 **Example row:**
 ```
-S001,Yes,Selective NAVLE Review,Selective Dentistry,Selective Oncology,Selective Anaesthesia,Block5
+**Example row:**
+```
+S001,Yes,Selective Emergency,Selective Anaesthesia,Selective Oncology,Selective Dentistry,Block5
+```
 ```
 
 ### 3. Sequence Restrictions Text File (`sequence_restrictions_example.txt`)
@@ -143,20 +146,22 @@ The system uses a **maximum flow algorithm (Dinic's algorithm)** to solve the as
    - Each rotation → valid blocks (based on availability and constraints)
    - Each block → sink (capacity 1)
 
-2. **Find maximum flow:** Assigns each student's 8 rotations to 8 different blocks
+2. **Find maximum flow:** Assigns each student's rotations (8 for normal, 9 for NAVLE) to valid blocks, attempting to spread assignments across blocks to create gaps
 
 3. **Respect constraints:**
    - Capacity: Only assign if rotation has availability in that block
    - Sequence: Enforce ordering rules (A must be before B)
-   - Coverage: Ensure NAVLE-required students get NAVLE rotation
+   - Coverage: Ensure NAVLE-required students get NAVLE rotation in eligible blocks
+   - Preferences: Prioritize student choices for selectives
+   - Gaps: Low-priority attempt to avoid consecutive block assignments
 
 ### Selective Rotation Selection
 
 For each student, the system selects rotations using this priority:
 
-1. If `NAVLE_required = Yes`: reserve the NAVLE rotation in addition to two selectives
+1. If `NAVLE_required = Yes`: reserve the NAVLE rotation separately (not from choices)
 2. Assign NAVLE to the preferred block when possible
-3. Fill the two remaining selective slots prioritizing: FirstChoice1 > FirstChoice2 > SecondChoice1 > SecondChoice2
+3. Fill the two selective slots prioritizing: FirstChoice1 > FirstChoice2 > SecondChoice1 > SecondChoice2
 4. If fewer than 2 unique choices are available, fill with other available selectives
 
 ### NAVLE Requirements
