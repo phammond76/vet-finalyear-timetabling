@@ -8,7 +8,7 @@ Each student must complete:
 - **6 mandatory core rotations** (one of each type)
 - **2 elective selective rotations** (chosen based on preferences)
 - **NAVLE students also complete 1 NAVLE rotation**
-- Scheduled across **10 blocks** (time periods in the academic year)
+- Scheduled across **10 or more blocks** (time periods in the academic year)
 - **Total: 8 blocks allocated for normal students, 9 rotations for NAVLE students**
 
 ## Requirements
@@ -30,7 +30,7 @@ Defines available slots for each rotation in each block.
 **Example row:**
 ```
 1,Core Small Animal,4,4,4,4,4,4,4,4,4,4
-20,Selective NAVLE Review,3,3,3,3,3,3,3,3,3,3
+20,Selective NAVLE Review,0,0,0,10,0,0,0,0,10,0
 ```
 
 **Rotation Types:**
@@ -52,10 +52,7 @@ Collects student preferences for selective rotations.
 
 **Example row:**
 ```
-**Example row:**
-```
 S001,Yes,Selective Emergency,Selective Anaesthesia,Selective Oncology,Selective Dentistry,Block5
-```
 ```
 
 ### 3. Sequence Restrictions Text File (`sequence_restrictions_example.txt`)
