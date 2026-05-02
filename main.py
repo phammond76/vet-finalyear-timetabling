@@ -460,17 +460,21 @@ def assign_rotations_to_student(
             continue
         if student.navle_required and rotation == "Selective NAVLE Review":
             continue
+        if rotation not in remaining_capacities:
+            continue
+        if sum(remaining_capacities[rotation].values()) <= 0:
+            continue
         selected_selectives.append(rotation)
         if len(selected_selectives) >= 2:
             break
 
-    # If not enough distinct choices were provided, fill from other selectives
+    # If not enough distinct choices were provided, fill from other available selectives.
     if len(selected_selectives) < 2:
         for rotation in remaining_capacities:
             if len(selected_selectives) >= 2:
                 break
             if rotation.lower().startswith("selective") and rotation != "Selective NAVLE Review":
-                if rotation not in selected_selectives:
+                if rotation not in selected_selectives and sum(remaining_capacities[rotation].values()) > 0:
                     selected_selectives.append(rotation)
 
     if student.navle_required:
@@ -703,6 +707,7 @@ def main() -> None:
 
     # Calculate statistics
     first_choice_counts = 0
+    both_first_choice_counts = 0
     second_choice_full_counts = 0
 
     for student in students:
@@ -714,6 +719,12 @@ def main() -> None:
             or student.first_choice_2 in assigned_rotations
         )
         
+        # Check if both first choices were satisfied
+        has_both_first = (
+            student.first_choice_1 in assigned_rotations
+            and student.first_choice_2 in assigned_rotations
+        )
+
         # Check if both second choices were satisfied
         has_second_both = (
             student.second_choice_1 in assigned_rotations
@@ -722,6 +733,8 @@ def main() -> None:
 
         if has_first:
             first_choice_counts += 1
+        if has_both_first:
+            both_first_choice_counts += 1
         if has_second_both:
             second_choice_full_counts += 1
 
@@ -730,6 +743,7 @@ def main() -> None:
 
     print(f"Allocation written to {args.output}")
     print(f"Students assigned at least one first choice: {first_choice_counts}/{student_count}")
+    print(f"Students assigned both first choices: {both_first_choice_counts}/{student_count}")
     print(f"Students assigned both second choices: {second_choice_full_counts}/{student_count}")
 
     if assignment_warnings:
