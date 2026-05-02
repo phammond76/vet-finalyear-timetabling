@@ -18,7 +18,7 @@ RotationID,RotationName,Block1,Block2,Block3,Block4,Block5,Block6,Block7,Block8,
 17,Selective Equine Dentistry,1,1,1,1,1,1,1,1,1,1
 18,Selective Rehabilitation,2,2,2,2,2,2,2,2,2,2
 19,Selective Neurology,2,2,2,2,2,2,2,2,2,2
-20,Selective NAVLE Review,3,3,3,3,3,3,3,3,3,3
+20,Selective NAVLE Review,0,0,0,0,4,0,0,0,0,4
 21,Selective Shelter Medicine,2,2,2,2,2,2,2,2,2,2
 22,Selective Wildlife,2,2,2,2,2,2,2,2,2,2
 23,Selective Behaviour,2,2,2,2,2,2,2,2,2,2

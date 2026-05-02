@@ -23,8 +23,9 @@ class StudentChoice:
     navle_required: bool  # Whether this student must do the NAVLE selective
     first_choice_1: str   # First choice for first selective rotation
     second_choice_1: str  # Second choice for first selective rotation
-    first_choice_2: str   # First choice for second selective rotation
+    first_choice_2: str  # First choice for second selective rotation
     second_choice_2: str  # Second choice for second selective rotation
+    navle_preferred_block: Optional[str] = None
 
 
 def read_rotation_capacities(path: Path) -> Tuple[List[str], Dict[str, Dict[str, int]], Dict[str, str]]:
@@ -62,7 +63,8 @@ def read_student_choices(path: Path) -> List[StudentChoice]:
     
     Args:
         path: Path to CSV file with columns: StudentID, NAVLE_required,
-              FirstChoice1, SecondChoice1, FirstChoice2, SecondChoice2
+              FirstChoice1, SecondChoice1, FirstChoice2, SecondChoice2,
+              NAVLE_preferred_block
               
     Returns:
         List of StudentChoice objects
@@ -79,6 +81,7 @@ def read_student_choices(path: Path) -> List[StudentChoice]:
                     second_choice_1=row["SecondChoice1"].strip(),
                     first_choice_2=row["FirstChoice2"].strip(),
                     second_choice_2=row["SecondChoice2"].strip(),
+                    navle_preferred_block=row.get("NAVLE_preferred_block", "").strip() or None,
                 )
             )
     return students
@@ -253,18 +256,23 @@ def rotation_allowed_in_block(
         True if assignment is valid, False otherwise
     """
     current_index = block_rank[block]
+    assigned_rotation_blocks = {
+        assigned_rotation: assigned_block
+        for assigned_block, assigned_rotation in assigned_blocks.items()
+    }
+
     for before, after in order_rules:
         # If this rotation must come before another, check that other rotation
         # is scheduled later (or not yet)
         if rotation == before:
-            if after in assigned_blocks:
-                if current_index >= block_rank[assigned_blocks[after]]:
+            if after in assigned_rotation_blocks:
+                if current_index >= block_rank[assigned_rotation_blocks[after]]:
                     return False
         # If this rotation must come after another, check that other rotation
         # is scheduled earlier or will have capacity in future blocks
         if rotation == after:
-            if before in assigned_blocks:
-                if current_index <= block_rank[assigned_blocks[before]]:
+            if before in assigned_rotation_blocks:
+                if current_index <= block_rank[assigned_rotation_blocks[before]]:
                     return False
             else:
                 remaining_blocks = [
@@ -281,7 +289,7 @@ def assign_rotations_to_students(
     block_names: Sequence[str],
     remaining_capacities: Dict[str, Dict[str, int]],
     order_rules: Sequence[Tuple[str, str]],
-) -> Dict[str, Dict[str, str]]:
+) -> Tuple[Dict[str, Dict[str, str]], List[str]]:
     """
     Assign all rotations to all students.
     
@@ -293,23 +301,36 @@ def assign_rotations_to_students(
         order_rules: Ordering constraints
         
     Returns:
-        Dict mapping student_id -> dict of block -> rotation_name assignments
+        Tuple of:
+        - Dict mapping student_id -> dict of block -> rotation_name assignments
+        - List of warning messages generated during assignment
         
     Raises:
         RuntimeError if any student cannot be assigned all rotations
     """
     student_assignments: Dict[str, Dict[str, str]] = {}
+    assignment_warnings: List[str] = []
     block_rank = {block: idx for idx, block in enumerate(block_names)}
 
-    for student in students:
-        assignments, problems = assign_rotations_to_student(
+    # Assign NAVLE-required students first because they need 9 rotations and a preferred NAVLE block.
+    assignment_order = sorted(
+        students,
+        key=lambda student: (
+            not student.navle_required,
+            len({student.first_choice_1, student.first_choice_2, student.second_choice_1, student.second_choice_2}),
+        ),
+    )
+
+    for student in assignment_order:
+        assignments, warnings = assign_rotations_to_student(
             student, block_names, core_rotations, remaining_capacities, order_rules
         )
-        if problems:
-            raise RuntimeError(f"Assignment failed for {student.student_id}: {problems}")
+        if not assignments:
+            raise RuntimeError(f"Assignment failed for {student.student_id}: {warnings}")
         student_assignments[student.student_id] = assignments
+        assignment_warnings.extend(warnings)
 
-    return student_assignments
+    return student_assignments, assignment_warnings
 
 
 def assign_rotations_to_student(
@@ -321,24 +342,24 @@ def assign_rotations_to_student(
 ) -> Tuple[Dict[str, str], List[str]]:
     """
     Assign rotations to a single student.
-    Each student gets: 6 core rotations + 2 selective rotations = 8 blocks total.
-    
+    Each student gets: 6 core rotations + 2 selective rotations = 8 blocks total,
+    or 6 core rotations + 2 selectives + NAVLE = 9 blocks total for NAVLE students.
+
     Uses maximum flow algorithm to find optimal assignment respecting constraints.
-    
+
     Args:
         student: The student to assign
         all_blocks: All available blocks
         core_rotations: List of mandatory core rotation names
         remaining_capacities: Available capacity for each rotation/block
         order_rules: Ordering constraints
-        
+
     Returns:
         Tuple of (assignment_dict, error_list) where assignment_dict maps
         block -> rotation_name and error_list contains any warning messages
     """
-    
-    # Step 1: Select 2 selective rotations for this student
-    # Priority: first choices, then second choices
+
+    # Step 1: Select 2 non-NAVLE selective rotations for each student
     priorities = [
         student.first_choice_1,
         student.first_choice_2,
@@ -347,31 +368,80 @@ def assign_rotations_to_student(
     ]
     selected_selectives: List[str] = []
     for rotation in priorities:
-        if rotation and rotation not in selected_selectives and not rotation.lower().startswith("core"):
-            selected_selectives.append(rotation)
+        if not rotation:
+            continue
+        if rotation in selected_selectives:
+            continue
+        if rotation.lower().startswith("core"):
+            continue
+        if student.navle_required and rotation == "Selective NAVLE Review":
+            continue
+        selected_selectives.append(rotation)
         if len(selected_selectives) >= 2:
             break
 
-    # If NAVLE is required and not already selected, add it
-    if student.navle_required and "Selective NAVLE Review" not in selected_selectives:
-        selected_selectives.insert(0, "Selective NAVLE Review")
-        selected_selectives = selected_selectives[:2]
+    # If not enough distinct choices were provided, fill from other selectives
+    if len(selected_selectives) < 2:
+        for rotation in remaining_capacities:
+            if len(selected_selectives) >= 2:
+                break
+            if rotation.lower().startswith("selective") and rotation != "Selective NAVLE Review":
+                if rotation not in selected_selectives:
+                    selected_selectives.append(rotation)
 
-    # Final list: 6 cores + 2 selectives
+    if student.navle_required:
+        selected_selectives.append("Selective NAVLE Review")
+
+    # Final list: 6 cores + selected selectives (+ NAVLE if required)
     student_rotations = core_rotations + selected_selectives
     block_rank = {block: idx for idx, block in enumerate(all_blocks)}
+    assignments: Dict[str, str] = {}
+    all_blocks_for_flow = list(all_blocks)
+    navle_warnings: List[str] = []
 
-    # Step 2: Use maximum flow to assign rotations to blocks
-    # Build flow network:
-    # source -> rotations -> blocks -> sink
-    # Each rotation has capacity 1 (must be assigned once)
-    # Each block has capacity 1 (can receive one rotation)
-    # Edges between rotations and blocks added only if assignment is valid
-    
+    # Step 2: For NAVLE students, assign NAVLE to preferred block if possible.
+    # If the preferred block is not available, use the other NAVLE block.
+    if student.navle_required:
+        navle_rotation = "Selective NAVLE Review"
+        preferred_block = student.navle_preferred_block
+        navle_blocks = [block for block in all_blocks if remaining_capacities.get(navle_rotation, {}).get(block, 0) > 0]
+
+        if preferred_block and preferred_block in navle_blocks:
+            navle_blocks = [preferred_block] + [b for b in navle_blocks if b != preferred_block]
+
+        navle_assigned_block: Optional[str] = None
+        for block_choice in navle_blocks:
+            if rotation_allowed_in_block(
+                student,
+                navle_rotation,
+                block_choice,
+                assignments,
+                all_blocks,
+                remaining_capacities,
+                order_rules,
+                block_rank,
+            ):
+                assignments[block_choice] = navle_rotation
+                remaining_capacities[navle_rotation][block_choice] -= 1
+                student_rotations.remove(navle_rotation)
+                all_blocks_for_flow = [b for b in all_blocks if b != block_choice]
+                navle_assigned_block = block_choice
+                break
+
+        if (
+            student.navle_required
+            and preferred_block
+            and navle_assigned_block
+            and navle_assigned_block != preferred_block
+        ):
+            navle_warnings.append(
+                f"NAVLE student {student.student_id} could not be assigned {preferred_block}; assigned {navle_assigned_block} instead."
+            )
+
     source = 0
     rotation_nodes = {rotation: idx + 1 for idx, rotation in enumerate(student_rotations)}
-    block_nodes = {block: len(student_rotations) + 1 + idx for idx, block in enumerate(all_blocks)}
-    sink = len(student_rotations) + 1 + len(all_blocks)
+    block_nodes = {block: len(student_rotations) + 1 + idx for idx, block in enumerate(all_blocks_for_flow)}
+    sink = len(student_rotations) + 1 + len(all_blocks_for_flow)
     graph = Dinic(sink + 1)
 
     # Source to rotations: each rotation must be assigned once
@@ -385,15 +455,13 @@ def assign_rotations_to_student(
     # Rotations to blocks: add edge if assignment is valid
     for rotation, rot_node in rotation_nodes.items():
         for block, block_node in block_nodes.items():
-            # Skip if no capacity available
-            if remaining_capacities[rotation][block] <= 0:
+            if remaining_capacities.get(rotation, {}).get(block, 0) <= 0:
                 continue
-            # Skip if ordering constraints violated
             if not rotation_allowed_in_block(
                 student,
                 rotation,
                 block,
-                {},  # No prior assignments within this student's assignment
+                assignments,
                 all_blocks,
                 remaining_capacities,
                 order_rules,
@@ -402,27 +470,25 @@ def assign_rotations_to_student(
                 continue
             graph.add_edge(rot_node, block_node, 1)
 
-    # Run max flow algorithm
     flow = graph.max_flow(source, sink)
     if flow != len(student_rotations):
         return {}, [f"Unable to assign all {len(student_rotations)} rotations for {student.student_id}"]
 
-    # Step 3: Extract assignments from flow graph
-    assignments: Dict[str, str] = {}
+    # Extract assignments from flow graph
     for block, block_node in block_nodes.items():
         for edge in graph.graph[block_node]:
             if edge.to == sink and edge.cap == 0:
-                # Edge has 0 remaining capacity, so flow went through it
-                # Find which rotation was assigned to this block
                 for rev_edge in graph.graph[block_node]:
                     if rev_edge.to in rotation_nodes.values() and rev_edge.cap > 0:
-                        rotation = next(name for name, node in rotation_nodes.items() if node == rev_edge.to)
+                        rotation = next(
+                            name for name, node in rotation_nodes.items() if node == rev_edge.to
+                        )
                         assignments[block] = rotation
                         remaining_capacities[rotation][block] -= 1
                         break
                 break
 
-    return assignments, []
+    return assignments, navle_warnings
 
 
 def write_allocation_output(
@@ -502,7 +568,7 @@ def main() -> None:
     }
 
     # Perform assignment
-    allocation_by_student = assign_rotations_to_students(
+    allocation_by_student, assignment_warnings = assign_rotations_to_students(
         students,
         core_rotations,
         block_names,
@@ -540,6 +606,11 @@ def main() -> None:
     print(f"Allocation written to {args.output}")
     print(f"Students assigned at least one first choice: {first_choice_counts}/{student_count}")
     print(f"Students assigned both second choices: {second_choice_full_counts}/{student_count}")
+
+    if assignment_warnings:
+        print("\nAssignment warnings:")
+        for warning in assignment_warnings:
+            print(f"- {warning}")
 
 
 if __name__ == "__main__":

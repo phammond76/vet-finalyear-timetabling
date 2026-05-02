@@ -7,8 +7,9 @@ An automated system for allocating final year veterinary students to clinical ro
 Each student must complete:
 - **6 mandatory core rotations** (one of each type)
 - **2 elective selective rotations** (chosen based on preferences)
+- **NAVLE students also complete 1 NAVLE rotation**
 - Scheduled across **10 blocks** (time periods in the academic year)
-- **Total: 8 blocks allocated, 2 blocks unallocated per student**
+- **Total: 8 blocks allocated for normal students, 9 rotations for NAVLE students**
 
 ## Requirements
 
@@ -47,10 +48,11 @@ Collects student preferences for selective rotations.
 - `SecondChoice1`: Fallback preference for first selective rotation
 - `FirstChoice2`: First preference for second selective rotation
 - `SecondChoice2`: Fallback preference for second selective rotation
+- `NAVLE_preferred_block`: Preferred block for NAVLE assignment if required
 
 **Example row:**
 ```
-S001,Yes,Selective NAVLE Review,Selective Dentistry,Selective Oncology,Selective Anaesthesia
+S001,Yes,Selective NAVLE Review,Selective Dentistry,Selective Oncology,Selective Anaesthesia,Block5
 ```
 
 ### 3. Sequence Restrictions Text File (`sequence_restrictions_example.txt`)
@@ -150,11 +152,19 @@ The system uses a **maximum flow algorithm (Dinic's algorithm)** to solve the as
 
 ### Selective Rotation Selection
 
-For each student, the system selects 2 selectives using this priority:
+For each student, the system selects rotations using this priority:
 
-1. If `NAVLE_required = Yes`: Reserve NAVLE rotation (counts as 1 of 2)
-2. Fill remaining slots prioritizing: FirstChoice1 > FirstChoice2 > SecondChoice1 > SecondChoice2
-3. If fewer than 2 unique choices available, fill with rotations that have most capacity
+1. If `NAVLE_required = Yes`: reserve the NAVLE rotation in addition to two selectives
+2. Assign NAVLE to the preferred block when possible
+3. Fill the two remaining selective slots prioritizing: FirstChoice1 > FirstChoice2 > SecondChoice1 > SecondChoice2
+4. If fewer than 2 unique choices are available, fill with other available selectives
+
+### NAVLE Requirements
+
+- `NAVLE_required = Yes` means the student will complete **9 rotations** total.
+- NAVLE students complete **6 cores + 2 selectives + 1 NAVLE rotation**.
+- NAVLE rotation is only available in the two NAVLE-eligible blocks.
+- `NAVLE_preferred_block` is used to assign the NAVLE rotation before scheduling the rest of the student's rotations.
 
 ## Algorithm Complexity
 
