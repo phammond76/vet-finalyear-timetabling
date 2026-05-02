@@ -362,15 +362,36 @@ def get_gap_friendly_block_order(
     candidates: List[List[int]] = []
     
     if num_rotations == 8:
-        # Patterns with good gap distribution (max run length ~4)
-        candidates = [
-            [1, 2, 3, 5, 6, 7, 9, 10],  # Gaps at 4, 8 - multiple smaller runs
-            [1, 2, 4, 5, 6, 7, 9, 10],  # Gaps at 3, 8
-            # [2, 3, 4, 5, 6, 7, 8, 9],   # Gaps at 1, 10
-            [1, 2, 3, 4, 6, 7, 8, 9],   # Gap at 5
-            [1, 2, 3, 4, 6, 7, 8, 10],  # Gaps at 5, 9
-            [1, 2, 3, 4, 5, 7, 8, 9],   # Gap at 6
-        ]
+        # Patterns with good gap distribution (max run length ~4).
+        # For NAVLE students, avoid using a gap at the NAVLE block itself.
+        if navle_block:
+            navle_num = int(navle_block[5:])
+            if navle_num == 5:
+                candidates = [
+                    [1, 2, 3, 4, 7, 8, 9, 10],  # Gap at 6 while NAVLE is at 5
+                    [1, 2, 3, 6, 7, 8, 9, 10],  # Gap at 4 while NAVLE is at 5
+                    [1, 2, 3, 4, 6, 7, 8, 10],  # Gap at 9 while NAVLE is at 5
+                ]
+            elif navle_num == 10:
+                candidates = [
+                    [1, 2, 3, 4, 6, 7, 8, 9],  # Gap at 5 while NAVLE is at 10
+                    [1, 2, 3, 5, 6, 7, 8, 9],  # Gap at 4 while NAVLE is at 10
+                    [1, 2, 3, 4, 5, 6, 7, 9],  # Gap at 8 while NAVLE is at 10
+                ]
+            else:
+                candidates = [
+                    [1, 2, 3, 4, 6, 7, 8, 9],
+                    [1, 2, 3, 5, 6, 7, 8, 9],
+                    [1, 2, 3, 4, 6, 7, 8, 10],
+                ]
+        else:
+            candidates = [
+                [1, 2, 3, 5, 6, 7, 9, 10],  # Gaps at 4, 8 - multiple smaller runs
+                [1, 2, 4, 5, 6, 7, 9, 10],  # Gaps at 3, 8
+                [1, 2, 3, 4, 6, 7, 8, 9],   # Gap at 5
+                [1, 2, 3, 4, 6, 7, 8, 10],  # Gaps at 5, 9
+                [1, 2, 3, 4, 5, 7, 8, 9],   # Gap at 6
+            ]
     elif num_rotations == 9:
         # NAVLE students get 9 rotations
         if navle_block and navle_block == "Block5":
@@ -591,12 +612,7 @@ def assign_rotations_to_student(
 
     # Try gap-friendly blocks first
     success, block_assignments = try_assignment_with_blocks(preferred_blocks)
-    
-    # Debug output
-    if student.student_id in ['S001', 'S006', 'S012', 'S018']:
-        print(f"DEBUG {student.student_id}: preferred_blocks = {preferred_blocks}")
-        print(f"DEBUG {student.student_id}: first pass success = {success}")
-    
+
     # If that fails, allow fallback blocks too
     if not success and fallback_blocks:
         success, block_assignments = try_assignment_with_blocks(preferred_blocks + fallback_blocks)

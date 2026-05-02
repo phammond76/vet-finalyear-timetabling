@@ -153,7 +153,7 @@ The system uses a **maximum flow algorithm (Dinic's algorithm)** to solve the as
    - Sequence: Enforce ordering rules (A must be before B)
    - Coverage: Ensure NAVLE-required students get NAVLE rotation in eligible blocks
    - Preferences: Prioritize student choices for selectives
-   - Gaps: Low-priority attempt to avoid consecutive block assignments
+   - Gaps: Low-priority attempt to avoid consecutive block assignments by using fixed gap-friendly block patterns
 
 ### Selective Rotation Selection
 
@@ -170,6 +170,7 @@ For each student, the system selects rotations using this priority:
 - NAVLE students complete **6 cores + 2 selectives + 1 NAVLE rotation**.
 - NAVLE rotation is only available in the two NAVLE-eligible blocks.
 - `NAVLE_preferred_block` is used to assign the NAVLE rotation before scheduling the rest of the student's rotations.
+- When NAVLE is assigned to a preferred block, the algorithm then schedules the remaining rotations using a gap-aware block ordering so the NAVLE block is treated as occupied and not counted as the only gap.
 
 ## Algorithm Complexity
 
